@@ -9,19 +9,30 @@ pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', None)
 pd.set_option('display.width', 1000)
 
+sns.set_theme()
 
-def get_data():
+
+def get_data() -> pd.DataFrame:
+    """'
+    download SPY Data from Yahoo Finance
+    :return: SPY History as pandas.Dataframe
+    """
     d: pd.DataFrame = yf.download("SPY", progress=False)
     return d
 
 
-def set_features(_in):
+def set_features(_in) -> pd.DataFrame:
+    """
+    Add colums for Percent Log return and Absolute Return
+    :param _in: raw_data
+    :return: Dataframe with additional Features
+    """
     _in['PctChange'] = _in['Close'].pct_change() * 100
     _in['Return'] = _in['Close'] - _in['Close'].shift(1)
     return _in
 
 
-def normal_dist(series):
+def normal_dist(series: pd.Series) -> pd.Series:
     d_min = series.min()
     d_max = series.max()
     d_len = series.count()
@@ -31,6 +42,10 @@ def normal_dist(series):
 
 
 def return_plot():
+    """
+    plot Daily return
+    :return:
+    """
     fig = plt.figure('Daily Change')
     ax1 = fig.add_subplot(211)
     ax1.title.set_text('ABS Return')
@@ -43,6 +58,10 @@ def return_plot():
 
 
 def history_plot():
+    """
+    plot Historica data both Absolute and Log
+    :return:
+    """
     fig = plt.figure('SPY Historical Data')
     ax1 = fig.add_subplot(211)
     ax1.title.set_text('Close To Close Return')
@@ -56,6 +75,10 @@ def history_plot():
 
 
 def dist_plot():
+    """
+    plot Distribution of returns vs normal distribution
+    :return:
+    """
     fig = plt.figure('Distribution')
 
     ax1 = fig.add_subplot(211)
@@ -78,7 +101,6 @@ def dist_plot():
 
 
 if __name__ == '__main__':
-    sns.set_theme()
 
     raw_data = get_data()
     data = set_features(raw_data)
