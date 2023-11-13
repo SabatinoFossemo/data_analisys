@@ -12,13 +12,6 @@ pd.set_option('display.width', 1000)
 
 sns.set_theme()
 
-
-def plt_xy_ticks_fontsize(fs):
-    plt.yticks(fontsize=fs)
-    plt.xticks(fontsize=fs)
-
-
-
 def get_data(symbol) -> pd.DataFrame:
     """'
     download SPY Data from Yahoo Finance
@@ -26,6 +19,27 @@ def get_data(symbol) -> pd.DataFrame:
     """
     d: pd.DataFrame = yf.download(symbol, progress=False)
     return d
+
+
+def set_features(_in) -> pd.DataFrame:
+    """
+    Add columns for Percent Log return and Absolute Return
+    :param _in: raw_data
+    :return: Dataframe with additional Features
+    """
+    _in['PctChange'] = _in['Close'].pct_change() * 100
+    _in['Return'] = _in['Close'] - _in['Close'].shift(1)
+
+    return _in
+
+
+def normal_dist(series: pd.Series) -> pd.Series:
+    d_min = series.min()
+    d_max = series.max()
+    d_len = series.count()
+    nrm = MinMaxScaler((d_min, d_max)).fit_transform(np.random.normal(size=d_len).reshape(-1, 1))
+    nrm = pd.Series(nrm[:, 0]).sort_values().reset_index(drop=True)
+    return nrm
 
 
 def primary_swing(data):
@@ -87,53 +101,28 @@ def primary_swing(data):
 def plot_primary_swing(swing_chart, linewidth):
     fig = plt.figure('Primary Swing Chart')
     fig.tight_layout()
+
     ax1 = plt.subplot(221)
     ax1.title.set_text('ABS Chart')
-    ax1.title.set_size(8)
-    plt_xy_ticks_fontsize(6)
     ax1.plot(swing_chart['Swing'], linewidth=linewidth)
+
     ax2 = plt.subplot(222)
     ax2.title.set_text('PCT Chart')
-    ax2.title.set_size(8)
-    plt_xy_ticks_fontsize(6)
     ax2.plot(swing_chart['PctRange'].cumsum(), linewidth=linewidth)
+
     ax3 = plt.subplot(223)
     ax3.title.set_text('ABS Range')
-    ax3.title.set_size(8)
-    plt_xy_ticks_fontsize(6)
     ax3.plot(swing_chart['AbsRange'], linewidth=linewidth)
+
     ax4 = plt.subplot(224)
     ax4.title.set_text('PCT  Range')
-    ax4.title.set_size(8)
-    plt_xy_ticks_fontsize(6)
     ax4.plot(swing_chart['PctRange'], linewidth=linewidth)
 
-
+    return fig
 
 
 def secondary_swing(swing):
     pass
-
-
-def set_features(_in) -> pd.DataFrame:
-    """
-    Add columns for Percent Log return and Absolute Return
-    :param _in: raw_data
-    :return: Dataframe with additional Features
-    """
-    _in['PctChange'] = _in['Close'].pct_change() * 100
-    _in['Return'] = _in['Close'] - _in['Close'].shift(1)
-
-    return _in
-
-
-def normal_dist(series: pd.Series) -> pd.Series:
-    d_min = series.min()
-    d_max = series.max()
-    d_len = series.count()
-    nrm = MinMaxScaler((d_min, d_max)).fit_transform(np.random.normal(size=d_len).reshape(-1, 1))
-    nrm = pd.Series(nrm[:, 0]).sort_values().reset_index(drop=True)
-    return nrm
 
 
 def history_plot(data, linewidth):
@@ -145,27 +134,21 @@ def history_plot(data, linewidth):
 
     ax1 = fig.add_subplot(221)
     ax1.title.set_text('Close To Close Return')
-    ax1.title.set_size(8)
-    plt_xy_ticks_fontsize(6)
     ax1.plot(data['Close'], linewidth=linewidth)
 
     ax2 = fig.add_subplot(222)
     ax2.title.set_text('LOG Chart')
-    ax2.title.set_size(8)
-    plt_xy_ticks_fontsize(6)
     ax2.plot(data['PctChange'].cumsum(), linewidth=linewidth)
 
     ax3 = fig.add_subplot(223)
     ax3.title.set_text('ABS Return')
-    ax3.title.set_size(8)
-    plt_xy_ticks_fontsize(6)
     plt.plot(data['Return'], linewidth=linewidth)
 
     ax4 = fig.add_subplot(224)
     ax4.title.set_text('LOG Return')
-    ax4.title.set_size(8)
-    plt_xy_ticks_fontsize(6)
     plt.plot(data['PctChange'], linewidth=linewidth)
+
+    return fig
 
 
 def dist_plot(data):
@@ -177,8 +160,6 @@ def dist_plot(data):
 
     ax1 = fig.add_subplot(211)
     ax1.title.set_text('Absolute Return vs Normal Distribution')
-    ax1.title.set_size(8)
-    plt_xy_ticks_fontsize(6)
     d1 = data['Return'].sort_values().reset_index(drop=True)
     n1 = normal_dist(d1)
     ax1.hist(d1, histtype='step', bins=100)
@@ -187,34 +168,41 @@ def dist_plot(data):
 
     ax2 = fig.add_subplot(212)
     ax2.title.set_text('Pct Return vs Normal Distribution')
-    ax2.title.set_size(8)
-    plt_xy_ticks_fontsize(6)
     d1 = data['PctChange'].sort_values().reset_index(drop=True)
     n1 = normal_dist(d1)
     ax2.hist(d1, histtype='step', bins=100)
     ax2.hist(n1, histtype='step', bins=100)
     plt.legend(['PCT Return', 'RandomNormDist'])
 
+    return fig
+
+
+def plt_setting(figures):
+    for fig in figures:
+        for axis in fig.axes:
+            axis.tick_params(labelsize=6)
+            axis.title.set_size(8)
+
 
 def main():
     symbol = "SPY"
     raw_data = get_data(symbol)
     data = set_features(raw_data)
-
     swing_chart = primary_swing(data).reset_index(drop=True)
-    plot_primary_swing(swing_chart, linewidth='.6')
 
     print(swing_chart)
     print(swing_chart.describe())
+    plots = []
+    fig = plot_primary_swing(swing_chart, linewidth='.6')
+    plots.append(fig)
+    fig = history_plot(data, linewidth='.6')
+    plots.append(fig)
 
-    history_plot(data, linewidth='.6')
-    dist_plot(data)
+    fig = dist_plot(data)
+    plots.append(fig)
 
-    plt.rc('font', size=6)
-    plt.rc('xtick', labelsize=6)
-    plt.rc('ytick', labelsize=6)
-    plt.rc('axes', labelsize=6)
-    plt.rc('axes', titlesize=6)
+    plt_setting(plots)
+
     plt.show()
 
 if __name__ == '__main__':
