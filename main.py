@@ -9,26 +9,121 @@ pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', None)
 pd.set_option('display.width', 1000)
 
+
 sns.set_theme()
 
 
-def get_data() -> pd.DataFrame:
+def plt_xy_ticks_fontsize(fs):
+    plt.yticks(fontsize=fs)
+    plt.xticks(fontsize=fs)
+
+
+
+def get_data(symbol) -> pd.DataFrame:
     """'
     download SPY Data from Yahoo Finance
     :return: SPY History as pandas.Dataframe
     """
-    d: pd.DataFrame = yf.download("SPY", progress=False)
+    d: pd.DataFrame = yf.download(symbol, progress=False)
     return d
+
+
+def primary_swing(data):
+
+    swing_high = (data['High'] > data['High'].shift(1)) & (data['High'] > data['High'].shift(-1))
+    swing_low = (data['Low'] < data['Low'].shift(1)) & (data['Low'] < data['Low'].shift(-1))
+    high = data['High']
+    low = data['Low']
+    date = data.index
+
+    trend = 0
+    result = []
+    index = []
+    sw_len = []
+    sw_type = []
+    for sh, sl, h, l, d in zip(swing_high, swing_low, high, low, date):
+        if trend < 0:
+            if sh:
+                result.append(h)
+                index.append(d)
+                sw_len.append(-trend)
+                sw_type.append('H')
+                trend = 1
+            else:
+                trend -= 1
+
+        elif trend > 0:
+            if sl:
+                result.append(l)
+                index.append(d)
+                sw_len.append(trend)
+                sw_type.append('L')
+                trend = -1
+            else:
+                trend += 1
+        else:
+            if sh:
+                result.append(h)
+                index.append(d)
+                sw_len.append(-trend)
+                sw_type.append('H')
+                trend = 1
+            elif sl:
+                result.append(l)
+                index.append(d)
+                sw_len.append(trend)
+                sw_type.append('L')
+                trend = -1
+            else:
+                continue
+
+    col = ['Swing', 'Length', 'Type']
+    result = pd.DataFrame(zip(result, sw_len, sw_type), index=index, columns=col)
+    result['AbsRange'] = result['Swing'].diff()
+    result['PctRange'] = result['Swing'].pct_change() * 100
+    return result
+
+
+def plot_primary_swing(swing_chart, linewidth):
+    fig = plt.figure('Primary Swing Chart')
+    fig.tight_layout()
+    ax1 = plt.subplot(221)
+    ax1.title.set_text('ABS Chart')
+    ax1.title.set_size(8)
+    plt_xy_ticks_fontsize(6)
+    ax1.plot(swing_chart['Swing'], linewidth=linewidth)
+    ax2 = plt.subplot(222)
+    ax2.title.set_text('PCT Chart')
+    ax2.title.set_size(8)
+    plt_xy_ticks_fontsize(6)
+    ax2.plot(swing_chart['PctRange'].cumsum(), linewidth=linewidth)
+    ax3 = plt.subplot(223)
+    ax3.title.set_text('ABS Range')
+    ax3.title.set_size(8)
+    plt_xy_ticks_fontsize(6)
+    ax3.plot(swing_chart['AbsRange'], linewidth=linewidth)
+    ax4 = plt.subplot(224)
+    ax4.title.set_text('PCT  Range')
+    ax4.title.set_size(8)
+    plt_xy_ticks_fontsize(6)
+    ax4.plot(swing_chart['PctRange'], linewidth=linewidth)
+
+
+
+
+def secondary_swing(swing):
+    pass
 
 
 def set_features(_in) -> pd.DataFrame:
     """
-    Add colums for Percent Log return and Absolute Return
+    Add columns for Percent Log return and Absolute Return
     :param _in: raw_data
     :return: Dataframe with additional Features
     """
     _in['PctChange'] = _in['Close'].pct_change() * 100
     _in['Return'] = _in['Close'] - _in['Close'].shift(1)
+
     return _in
 
 
@@ -41,40 +136,39 @@ def normal_dist(series: pd.Series) -> pd.Series:
     return nrm
 
 
-def return_plot():
+def history_plot(data, linewidth):
     """
-    plot Daily return
+    plot Historical data both Absolute and Log
     :return:
     """
-    fig = plt.figure('Daily Change')
-    ax1 = fig.add_subplot(211)
-    ax1.title.set_text('ABS Return')
-    ax1.title.set_size(8)
-    plt.plot(data['Return'])
-    ax2 = fig.add_subplot(212)
-    ax2.title.set_text('LOG Return')
-    ax2.title.set_size(8)
-    plt.plot(data['PctChange'])
+    fig = plt.figure('Historical Data')
 
-
-def history_plot():
-    """
-    plot Historica data both Absolute and Log
-    :return:
-    """
-    fig = plt.figure('SPY Historical Data')
-    ax1 = fig.add_subplot(211)
+    ax1 = fig.add_subplot(221)
     ax1.title.set_text('Close To Close Return')
     ax1.title.set_size(8)
-    ax1.plot(data['Close'])
+    plt_xy_ticks_fontsize(6)
+    ax1.plot(data['Close'], linewidth=linewidth)
 
-    ax2 = fig.add_subplot(212)
-    ax2.title.set_text('LOG Return')
+    ax2 = fig.add_subplot(222)
+    ax2.title.set_text('LOG Chart')
     ax2.title.set_size(8)
-    ax2.plot(data['PctChange'].cumsum())
+    plt_xy_ticks_fontsize(6)
+    ax2.plot(data['PctChange'].cumsum(), linewidth=linewidth)
+
+    ax3 = fig.add_subplot(223)
+    ax3.title.set_text('ABS Return')
+    ax3.title.set_size(8)
+    plt_xy_ticks_fontsize(6)
+    plt.plot(data['Return'], linewidth=linewidth)
+
+    ax4 = fig.add_subplot(224)
+    ax4.title.set_text('LOG Return')
+    ax4.title.set_size(8)
+    plt_xy_ticks_fontsize(6)
+    plt.plot(data['PctChange'], linewidth=linewidth)
 
 
-def dist_plot():
+def dist_plot(data):
     """
     plot Distribution of returns vs normal distribution
     :return:
@@ -84,6 +178,7 @@ def dist_plot():
     ax1 = fig.add_subplot(211)
     ax1.title.set_text('Absolute Return vs Normal Distribution')
     ax1.title.set_size(8)
+    plt_xy_ticks_fontsize(6)
     d1 = data['Return'].sort_values().reset_index(drop=True)
     n1 = normal_dist(d1)
     ax1.hist(d1, histtype='step', bins=100)
@@ -93,6 +188,7 @@ def dist_plot():
     ax2 = fig.add_subplot(212)
     ax2.title.set_text('Pct Return vs Normal Distribution')
     ax2.title.set_size(8)
+    plt_xy_ticks_fontsize(6)
     d1 = data['PctChange'].sort_values().reset_index(drop=True)
     n1 = normal_dist(d1)
     ax2.hist(d1, histtype='step', bins=100)
@@ -100,13 +196,26 @@ def dist_plot():
     plt.legend(['PCT Return', 'RandomNormDist'])
 
 
-if __name__ == '__main__':
-
-    raw_data = get_data()
+def main():
+    symbol = "SPY"
+    raw_data = get_data(symbol)
     data = set_features(raw_data)
 
-    return_plot()
-    history_plot()
-    dist_plot()
+    swing_chart = primary_swing(data).reset_index(drop=True)
+    plot_primary_swing(swing_chart, linewidth='.6')
 
+    print(swing_chart)
+    print(swing_chart.describe())
+
+    history_plot(data, linewidth='.6')
+    dist_plot(data)
+
+    plt.rc('font', size=6)
+    plt.rc('xtick', labelsize=6)
+    plt.rc('ytick', labelsize=6)
+    plt.rc('axes', labelsize=6)
+    plt.rc('axes', titlesize=6)
     plt.show()
+
+if __name__ == '__main__':
+    main()
